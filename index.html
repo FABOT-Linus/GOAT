@@ -2,26 +2,39 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tofu's Cloud Portfolio</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #000; color: #fff; margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; background: #121212; padding: 30px; border-radius: 12px; border: 1px solid #333; }
-        h1, h2 { text-align: center; letter-spacing: 1px; }
-        h2 { margin-top: 50px; color: #888; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #000; color: #fff; margin: 0; padding: 15px; }
+        .container { max-width: 1200px; margin: auto; background: #121212; padding: 20px; border-radius: 12px; border: 1px solid #333; }
+        
+        /* Table Responsive Wrapper */
+        .table-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; }
+        
+        h1, h2 { text-align: center; letter-spacing: 1px; font-size: 1.5rem; }
         .sync-status { text-align: center; font-size: 0.7rem; color: #555; margin-bottom: 10px; }
-        .input-section { margin-bottom: 30px; display: flex; gap: 10px; justify-content: center; background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #444; flex-wrap: wrap; }
-        input { padding: 12px; background: #000; border: 1px solid #444; color: white; border-radius: 4px; width: 220px; text-transform: uppercase; }
-        button { background: #007bff; color: white; padding: 10px 25px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:disabled { background: #444; cursor: not-allowed; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { text-align: left; padding: 12px; border-bottom: 2px solid #333; color: #888; font-size: 0.75rem; text-transform: uppercase; }
-        td { padding: 12px; border-bottom: 1px solid #222; font-size: 0.95rem; }
+        
+        .input-section { margin-bottom: 20px; display: flex; gap: 8px; justify-content: center; background: #1e1e1e; padding: 15px; border-radius: 8px; flex-wrap: wrap; }
+        input { padding: 12px; background: #000; border: 1px solid #444; color: white; border-radius: 4px; width: 100%; max-width: 200px; text-transform: uppercase; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+        table { width: 100%; border-collapse: collapse; min-width: 600px; } /* Ensures table doesn't squish too much */
+        th { text-align: left; padding: 10px; border-bottom: 2px solid #333; color: #888; font-size: 0.7rem; text-transform: uppercase; white-space: nowrap; }
+        td { padding: 10px; border-bottom: 1px solid #222; font-size: 0.9rem; white-space: nowrap; }
+        
         .up { color: #00ff00; font-weight: bold; }
         .down { color: #ff3333; font-weight: bold; }
-        .exit-btn { background: transparent; color: #ff9800; border: 1px solid #ff9800; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        .exit-btn:hover { background: #ff9800; color: #000; }
-        .clear-btn { background: transparent; color: #666; border: 1px solid #666; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+        .exit-btn { background: transparent; color: #ff9800; border: 1px solid #ff9800; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
+
+        /* MOBILE OPTIMIZATIONS (iPhone 14 Pro approx 393px) */
+        @media screen and (max-width: 600px) {
+            .container { padding: 10px; border: none; }
+            input { max-width: 100%; }
+            /* Hide non-essential columns on very small screens to fit core data */
+            .hide-mobile { display: none; }
+            table { min-width: 100%; } 
+            th, td { padding: 8px 4px; font-size: 0.8rem; }
+        }
     </style>
 </head>
 <body>
@@ -30,40 +43,43 @@
         <div id="syncIndicator" class="sync-status">Initial Syncing...</div>
         <h1>📈 Active Portfolio</h1>
         <div class="input-section">
-            <input type="text" id="tickerInput" placeholder="Enter Ticker (e.g. SNOW)">
-            <button id="addBtn" onclick="addStock()">Track Ticker</button>
+            <input type="text" id="tickerInput" placeholder="Ticker (e.g. NVDA)">
+            <button id="addBtn" onclick="addStock()">Add</button>
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Ticker</th>
-                    <th>Total Gain</th>
-                    <th>Current Price</th>
-                    <th>Price In</th>
-                    <th>Today's Gain</th>
-                    <th>Date In</th>
-                    <th>Days</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="stockBody"></tbody>
-        </table>
 
-        <h2>📜 Exit History <button class="clear-btn" onclick="clearHistory()" style="float: right;">Clear History</button></h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Ticker</th>
-                    <th>Exit Date</th>
-                    <th>Date In</th>
-                    <th>Days Held</th>
-                    <th>Price In</th>
-                    <th>Price Out</th>
-                    <th>Total Profit</th>
-                </tr>
-            </thead>
-            <tbody id="historyBody"></tbody>
-        </table>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Total %</th>
+                        <th>Price</th>
+                        <th class="hide-mobile">In</th>
+                        <th class="hide-mobile">Today</th>
+                        <th class="hide-mobile">Date</th>
+                        <th>Days</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="stockBody"></tbody>
+            </table>
+        </div>
+
+        <h2>📜 Exit History <button class="clear-btn" onclick="clearHistory()" style="float: right;">Clear</button></h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Exit Date</th>
+                        <th class="hide-mobile">In</th>
+                        <th>Out</th>
+                        <th>Profit</th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody"></tbody>
+            </table>
+        </div>
     </div>
 
     <script>
@@ -74,7 +90,6 @@
         let stocks = [];
         let history = [];
 
-        // RESTORE ORIGINAL DATA
         const originalTickers = [
             { ticker: 'SNOW', priceIn: 143.01, dateIn: '2026-04-20' },
             { ticker: 'CRM', priceIn: 182.50, dateIn: '2026-04-20' },
@@ -98,7 +113,6 @@
                 stocks = result.record.stocks || [];
                 history = result.record.history || [];
 
-                // FORCE RESTORE CHECK: If cloud is empty or missing originals, add them back
                 let updated = false;
                 originalTickers.forEach(orig => {
                     if (!stocks.find(s => s.ticker === orig.ticker)) {
@@ -108,12 +122,9 @@
                 });
 
                 if (updated) { await saveData(); }
-
                 renderTables();
                 updateSyncStatus("Cloud Synced");
-            } catch (e) {
-                updateSyncStatus("Sync Failed (Offline)");
-            }
+            } catch (e) { updateSyncStatus("Sync Failed"); }
         }
 
         async function saveData() {
@@ -181,14 +192,28 @@
                 } catch (e) {}
             }
             activeData.sort((a, b) => (b.days !== a.days) ? b.days - a.days : b.totalPct - a.totalPct);
-            tbody.innerHTML = activeData.length === 0 ? "<tr><td colspan='8' style='text-align:center;'>No active trades.</td></tr>" : "";
+            
+            tbody.innerHTML = activeData.length === 0 ? "<tr><td colspan='8'>No active trades.</td></tr>" : "";
             activeData.forEach(s => {
                 const todayPct = ((s.current - s.prev) / s.prev * 100).toFixed(2);
-                tbody.innerHTML += `<tr><td><strong>${s.ticker}</strong></td><td class="${s.totalPct >= 0 ? 'up' : 'down'}">${s.totalPct >= 0 ? '▲' : '▼'} ${Math.abs(s.totalPct)}%</td><td>$${s.current.toFixed(2)}</td><td>$${s.priceIn.toFixed(2)}</td><td class="${todayPct >= 0 ? 'up' : 'down'}">${todayPct >= 0 ? '▲' : '▼'} ${Math.abs(todayPct)}%</td><td>${s.dateIn}</td><td>${s.days}</td><td><button class="exit-btn" onclick="exitStock('${s.ticker}')">Exit</button></td></tr>`;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${s.ticker}</strong></td>
+                        <td class="${s.totalPct >= 0 ? 'up' : 'down'}">${s.totalPct >= 0 ? '▲' : '▼'} ${Math.abs(s.totalPct)}%</td>
+                        <td>$${s.current.toFixed(2)}</td>
+                        <td class="hide-mobile">$${s.priceIn.toFixed(2)}</td>
+                        <td class="hide-mobile ${todayPct >= 0 ? 'up' : 'down'}">${todayPct >= 0 ? '▲' : '▼'} ${Math.abs(todayPct)}%</td>
+                        <td class="hide-mobile">${s.dateIn}</td>
+                        <td>${s.days}</td>
+                        <td><button class="exit-btn" onclick="exitStock('${s.ticker}')">Exit</button></td>
+                    </tr>`;
             });
+
             const hbody = document.getElementById('historyBody');
-            hbody.innerHTML = history.length === 0 ? "<tr><td colspan='7' style='text-align:center;'>No history yet.</td></tr>" : "";
-            history.forEach(h => { hbody.innerHTML += `<tr><td><strong>${h.ticker}</strong></td><td>${h.exitDate}</td><td>${h.dateIn}</td><td>${h.daysHeld}</td><td>$${h.priceIn.toFixed(2)}</td><td>$${h.priceOut.toFixed(2)}</td><td class="${h.profitPct >= 0 ? 'up' : 'down'}">${h.profitPct >= 0 ? '▲' : '▼'} ${Math.abs(h.profitPct)}%</td></tr>`; });
+            hbody.innerHTML = history.length === 0 ? "<tr><td colspan='5'>No history.</td></tr>" : "";
+            history.forEach(h => {
+                hbody.innerHTML += `<tr><td><strong>${h.ticker}</strong></td><td>${h.exitDate}</td><td class="hide-mobile">$${h.priceIn.toFixed(2)}</td><td>$${h.priceOut.toFixed(2)}</td><td class="${h.profitPct >= 0 ? 'up' : 'down'}">${h.profitPct >= 0 ? '▲' : '▼'} ${Math.abs(h.profitPct)}%</td></tr>`;
+            });
         }
 
         async function clearHistory() { if(confirm("Clear history?")) { history = []; await saveData(); renderTables(); } }
