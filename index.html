@@ -8,32 +8,33 @@
         body { font-family: 'Segoe UI', sans-serif; background-color: #000; color: #fff; margin: 0; padding: 15px; }
         .container { max-width: 1200px; margin: auto; background: #121212; padding: 20px; border-radius: 12px; border: 1px solid #333; }
         
-        /* Table Responsive Wrapper */
-        .table-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; }
+        /* Summary Card */
+        .summary-card { background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #444; margin-bottom: 20px; text-align: center; }
+        .summary-label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .summary-value { font-size: 2rem; font-weight: bold; margin-top: 5px; }
         
-        h1, h2 { text-align: center; letter-spacing: 1px; font-size: 1.5rem; }
+        .table-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; }
+        h1, h2 { text-align: center; letter-spacing: 1px; font-size: 1.5rem; margin-top: 0; }
         .sync-status { text-align: center; font-size: 0.7rem; color: #555; margin-bottom: 10px; }
         
         .input-section { margin-bottom: 20px; display: flex; gap: 8px; justify-content: center; background: #1e1e1e; padding: 15px; border-radius: 8px; flex-wrap: wrap; }
         input { padding: 12px; background: #000; border: 1px solid #444; color: white; border-radius: 4px; width: 100%; max-width: 200px; text-transform: uppercase; }
         button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
-        table { width: 100%; border-collapse: collapse; min-width: 600px; } /* Ensures table doesn't squish too much */
-        th { text-align: left; padding: 10px; border-bottom: 2px solid #333; color: #888; font-size: 0.7rem; text-transform: uppercase; white-space: nowrap; }
-        td { padding: 10px; border-bottom: 1px solid #222; font-size: 0.9rem; white-space: nowrap; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th { text-align: left; padding: 10px; border-bottom: 2px solid #333; color: #888; font-size: 0.7rem; text-transform: uppercase; }
+        td { padding: 10px; border-bottom: 1px solid #222; font-size: 0.9rem; }
         
         .up { color: #00ff00; font-weight: bold; }
         .down { color: #ff3333; font-weight: bold; }
         .exit-btn { background: transparent; color: #ff9800; border: 1px solid #ff9800; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; }
 
-        /* MOBILE OPTIMIZATIONS (iPhone 14 Pro approx 393px) */
         @media screen and (max-width: 600px) {
             .container { padding: 10px; border: none; }
-            input { max-width: 100%; }
-            /* Hide non-essential columns on very small screens to fit core data */
             .hide-mobile { display: none; }
             table { min-width: 100%; } 
             th, td { padding: 8px 4px; font-size: 0.8rem; }
+            .summary-value { font-size: 1.5rem; }
         }
     </style>
 </head>
@@ -41,6 +42,12 @@
 
     <div class="container">
         <div id="syncIndicator" class="sync-status">Initial Syncing...</div>
+        
+        <div class="summary-card">
+            <div class="summary-label">Average Total Gain</div>
+            <div id="avgGainValue" class="summary-value">0.00%</div>
+        </div>
+
         <h1>📈 Active Portfolio</h1>
         <div class="input-section">
             <input type="text" id="tickerInput" placeholder="Ticker (e.g. NVDA)">
@@ -181,7 +188,10 @@
 
         async function renderTables() {
             const tbody = document.getElementById('stockBody');
+            const avgDisplay = document.getElementById('avgGainValue');
             const activeData = [];
+            let cumulativePct = 0;
+
             for (let s of stocks) {
                 try {
                     const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${s.ticker}&token=${FINNHUB_KEY}`);
@@ -189,8 +199,20 @@
                     const totalPct = parseFloat(((data.c - s.priceIn) / s.priceIn * 100).toFixed(2));
                     const days = Math.floor((new Date() - new Date(s.dateIn)) / (1000 * 60 * 60 * 24));
                     activeData.push({ ...s, current: data.c, prev: data.pc, totalPct, days });
+                    cumulativePct += totalPct;
                 } catch (e) {}
             }
+
+            // Update Average Gain Display
+            if (activeData.length > 0) {
+                const average = (cumulativePct / activeData.length).toFixed(2);
+                avgDisplay.innerText = `${average > 0 ? '▲' : '▼'} ${Math.abs(average)}%`;
+                avgDisplay.className = `summary-value ${average >= 0 ? 'up' : 'down'}`;
+            } else {
+                avgDisplay.innerText = "0.00%";
+                avgDisplay.className = "summary-value";
+            }
+
             activeData.sort((a, b) => (b.days !== a.days) ? b.days - a.days : b.totalPct - a.totalPct);
             
             tbody.innerHTML = activeData.length === 0 ? "<tr><td colspan='8'>No active trades.</td></tr>" : "";
