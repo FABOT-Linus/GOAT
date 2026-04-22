@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tofu's Cloud Portfolio</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #000; color: #fff; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: #121212; padding: 30px; border-radius: 12px; border: 1px solid #333; }
+        h1, h2 { text-align: center; letter-spacing: 1px; }
+        h2 { margin-top: 50px; color: #888; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .sync-status { text-align: center; font-size: 0.7rem; color: #555; margin-bottom: 10px; }
+        .input-section { margin-bottom: 30px; display: flex; gap: 10px; justify-content: center; background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #444; flex-wrap: wrap; }
+        input { padding: 12px; background: #000; border: 1px solid #444; color: white; border-radius: 4px; width: 220px; text-transform: uppercase; }
+        button { background: #007bff; color: white; padding: 10px 25px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:disabled { background: #444; cursor: not-allowed; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; padding: 12px; border-bottom: 2px solid #333; color: #888; font-size: 0.75rem; text-transform: uppercase; }
+        td { padding: 12px; border-bottom: 1px solid #222; font-size: 0.95rem; }
+        .up { color: #00ff00; font-weight: bold; }
+        .down { color: #ff3333; font-weight: bold; }
+        .exit-btn { background: transparent; color: #ff9800; border: 1px solid #ff9800; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .exit-btn:hover { background: #ff9800; color: #000; }
+        .clear-btn { background: transparent; color: #666; border: 1px solid #666; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="syncIndicator" class="sync-status">Initial Syncing...</div>
+        <h1>📈 Active Portfolio</h1>
+        <div class="input-section">
+            <input type="text" id="tickerInput" placeholder="Enter Ticker (e.g. SNOW)">
+            <button id="addBtn" onclick="addStock()">Track Ticker</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th>Total Gain</th>
+                    <th>Current Price</th>
+                    <th>Price In</th>
+                    <th>Today's Gain</th>
+                    <th>Date In</th>
+                    <th>Days</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="stockBody"></tbody>
+        </table>
+
+        <h2>📜 Exit History <button class="clear-btn" onclick="clearHistory()" style="float: right;">Clear History</button></h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th>Exit Date</th>
+                    <th>Date In</th>
+                    <th>Days Held</th>
+                    <th>Price In</th>
+                    <th>Price Out</th>
+                    <th>Total Profit</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const CLOUD_API_KEY = '$2a$10$vrNIOTTyTkpUQqeKydt.puVv0P5GNr3/WeQ7FENZLanYgzzuybqlm';
+        const BIN_ID = '69e9144d856a6821896042da';
+        const FINNHUB_KEY = 'd7kgcehr01qiqbcu9i6gd7kgcehr01qiqbcu9i70';
+
+        let stocks = [];
+        let history = [];
+
+        // RESTORE ORIGINAL DATA
+        const originalTickers = [
+            { ticker: 'SNOW', priceIn: 143.01, dateIn: '2026-04-20' },
+            { ticker: 'CRM', priceIn: 182.50, dateIn: '2026-04-20' },
+            { ticker: 'ZS', priceIn: 133.36, dateIn: '2026-04-20' },
+            { ticker: 'ZM', priceIn: 89.04, dateIn: '2026-04-20' },
+            { ticker: 'SANM', priceIn: 174.00, dateIn: '2026-04-20' },
+            { ticker: 'PYPL', priceIn: 50.92, dateIn: '2026-04-20' },
+            { ticker: 'RDDT', priceIn: 162.00, dateIn: '2026-04-20' },
+            { ticker: 'DASH', priceIn: 181.67, dateIn: '2026-04-20' },
+            { ticker: 'VEEV', priceIn: 167.50, dateIn: '2026-04-20' },
+            { ticker: 'ANET', priceIn: 172.86, dateIn: '2026-04-21' }
+        ];
+
+        async function loadData() {
+            updateSyncStatus("Syncing...");
+            try {
+                const resp = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                    headers: { 'X-Master-Key': CLOUD_API_KEY }
+                });
+                const result = await resp.json();
+                stocks = result.record.stocks || [];
+                history = result.record.history || [];
+
+                // FORCE RESTORE CHECK: If cloud is empty or missing originals, add them back
+                let updated = false;
+                originalTickers.forEach(orig => {
+                    if (!stocks.find(s => s.ticker === orig.ticker)) {
+                        stocks.push(orig);
+                        updated = true;
+                    }
+                });
+
+                if (updated) { await saveData(); }
+
+                renderTables();
+                updateSyncStatus("Cloud Synced");
+            } catch (e) {
+                updateSyncStatus("Sync Failed (Offline)");
+            }
+        }
+
+        async function saveData() {
+            updateSyncStatus("Saving...");
+            try {
+                await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': CLOUD_API_KEY },
+                    body: JSON.stringify({ stocks, history })
+                });
+                updateSyncStatus("Saved to Cloud");
+            } catch (e) { updateSyncStatus("Save Failed"); }
+        }
+
+        function updateSyncStatus(text) { document.getElementById('syncIndicator').innerText = text; }
+
+        async function addStock() {
+            const tInput = document.getElementById('tickerInput');
+            const ticker = tInput.value.toUpperCase().trim();
+            if (!ticker) return;
+            document.getElementById('addBtn').disabled = true;
+            try {
+                const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${FINNHUB_KEY}`);
+                const data = await resp.json();
+                if (data.c) {
+                    stocks.push({ ticker, priceIn: data.c, dateIn: new Date().toISOString().split('T')[0] });
+                    await saveData();
+                    renderTables();
+                    tInput.value = '';
+                }
+            } catch (e) { alert("Error"); }
+            document.getElementById('addBtn').disabled = false;
+        }
+
+        async function exitStock(ticker) {
+            const idx = stocks.findIndex(s => s.ticker === ticker);
+            if (idx === -1) return;
+            const stock = stocks[idx];
+            try {
+                const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${stock.ticker}&token=${FINNHUB_KEY}`);
+                const data = await resp.json();
+                const priceOut = data.c || 0;
+                const exitDate = new Date().toISOString().split('T')[0];
+                history.unshift({
+                    ticker: stock.ticker, exitDate, dateIn: stock.dateIn,
+                    daysHeld: Math.floor((new Date(exitDate) - new Date(stock.dateIn)) / (1000 * 60 * 60 * 24)),
+                    priceIn: stock.priceIn, priceOut, profitPct: ((priceOut - stock.priceIn) / stock.priceIn * 100).toFixed(2)
+                });
+                stocks.splice(idx, 1);
+                await saveData();
+                renderTables();
+            } catch (e) { alert("Error"); }
+        }
+
+        async function renderTables() {
+            const tbody = document.getElementById('stockBody');
+            const activeData = [];
+            for (let s of stocks) {
+                try {
+                    const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${s.ticker}&token=${FINNHUB_KEY}`);
+                    const data = await resp.json();
+                    const totalPct = parseFloat(((data.c - s.priceIn) / s.priceIn * 100).toFixed(2));
+                    const days = Math.floor((new Date() - new Date(s.dateIn)) / (1000 * 60 * 60 * 24));
+                    activeData.push({ ...s, current: data.c, prev: data.pc, totalPct, days });
+                } catch (e) {}
+            }
+            activeData.sort((a, b) => (b.days !== a.days) ? b.days - a.days : b.totalPct - a.totalPct);
+            tbody.innerHTML = activeData.length === 0 ? "<tr><td colspan='8' style='text-align:center;'>No active trades.</td></tr>" : "";
+            activeData.forEach(s => {
+                const todayPct = ((s.current - s.prev) / s.prev * 100).toFixed(2);
+                tbody.innerHTML += `<tr><td><strong>${s.ticker}</strong></td><td class="${s.totalPct >= 0 ? 'up' : 'down'}">${s.totalPct >= 0 ? '▲' : '▼'} ${Math.abs(s.totalPct)}%</td><td>$${s.current.toFixed(2)}</td><td>$${s.priceIn.toFixed(2)}</td><td class="${todayPct >= 0 ? 'up' : 'down'}">${todayPct >= 0 ? '▲' : '▼'} ${Math.abs(todayPct)}%</td><td>${s.dateIn}</td><td>${s.days}</td><td><button class="exit-btn" onclick="exitStock('${s.ticker}')">Exit</button></td></tr>`;
+            });
+            const hbody = document.getElementById('historyBody');
+            hbody.innerHTML = history.length === 0 ? "<tr><td colspan='7' style='text-align:center;'>No history yet.</td></tr>" : "";
+            history.forEach(h => { hbody.innerHTML += `<tr><td><strong>${h.ticker}</strong></td><td>${h.exitDate}</td><td>${h.dateIn}</td><td>${h.daysHeld}</td><td>$${h.priceIn.toFixed(2)}</td><td>$${h.priceOut.toFixed(2)}</td><td class="${h.profitPct >= 0 ? 'up' : 'down'}">${h.profitPct >= 0 ? '▲' : '▼'} ${Math.abs(h.profitPct)}%</td></tr>`; });
+        }
+
+        async function clearHistory() { if(confirm("Clear history?")) { history = []; await saveData(); renderTables(); } }
+
+        loadData();
+        setInterval(renderTables, 60000);
+        setInterval(loadData, 120000); 
+    </script>
+</body>
+</html>
